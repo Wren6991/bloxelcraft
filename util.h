@@ -17,6 +17,13 @@ struct vec3
     std::string tostring();
 };
 
+struct packedvert
+{
+    vec3 pos;
+    vec3 normal;
+    float u, v;         //32 byte aligned :D
+};
+
 struct texdata
 {
     char *data;

@@ -5,6 +5,7 @@
 #include "util.h"
 
 const int chunk_size = 32;
+const int nvertindices = (chunk_size + 1) * (chunk_size + 1) * (chunk_size + 1);
 
 typedef enum blocktype
 {
@@ -13,6 +14,16 @@ typedef enum blocktype
     blk_dirt,
     blk_wood
 } blocktype;
+
+typedef enum face_orientation
+{
+    f_left = 0,
+    f_right,
+    f_down,
+    f_up,
+    f_near,
+    f_far
+} face_orientation;
 
 
 class chunk

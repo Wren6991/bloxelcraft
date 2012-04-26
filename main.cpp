@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <sstream>
+#include <vector>
 #include "util.h"
 #include "chunk.h"
 #include "world.h"
@@ -16,6 +17,8 @@ struct
     GLuint fshader;
     GLuint vshader;
     GLuint program;
+    GLuint vertexbuffer;
+    GLuint posoffset;
 } resources;
 
 void makeResources()
@@ -23,6 +26,60 @@ void makeResources()
     resources.fshader = makeShader(GL_FRAGMENT_SHADER, "J:/bloxelcraft/f.glsl");
     resources.vshader = makeShader(GL_VERTEX_SHADER, "J:/bloxelcraft/v.glsl");
     resources.program = makeProgram(resources.vshader, resources.fshader);
+
+    resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
+
+    std::cout << "posoffset " << resources.posoffset << "\n";
+
+    std::vector <packedvert> verts;
+    vec3 normal;
+
+    for (int face = 0; face < 6; face++)                                //one set of vertices for each face direction - allows us to pack in normals, specify all information in index buffer.
+    {
+        switch (face)
+        {
+            case f_left:
+                normal = vec3(-1, 0, 0);
+                break;
+            case f_right:
+                normal = vec3(1, 0, 0);
+                break;
+            case f_down:
+                normal = vec3(0, -1, 0);
+                break;
+            case f_up:
+                normal = vec3(0, 1, 0);
+                break;
+            case f_near:
+                normal = vec3(0, 0, -1);
+                break;
+            case f_far:
+                normal = vec3(0, 0, 1);
+                break;
+            default:
+                break;
+        }
+        for (int i = 0; i <= chunk_size; i++)                           //array size is actually chunk_size + 1, as we have edge vertices to account for.
+        {
+            for (int j = 0; j <= chunk_size; j++)
+            {
+                for (int k = 0; k <= chunk_size; k++)
+                {
+                    packedvert v;
+                    v.pos = vec3(i, j, k);
+                    v.normal = normal;
+                    verts.push_back(v);
+                }
+            }
+        }
+    }
+
+    glGenBuffers(1, &resources.vertexbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, resources.vertexbuffer);
+    glBufferData(GL_ARRAY_BUFFER, 6 * (chunk_size + 1)*(chunk_size + 1)*(chunk_size + 1) * sizeof(packedvert), &verts[0], GL_STATIC_DRAW);
+
+
+
 }
 
 
@@ -129,23 +186,35 @@ int main()
 
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glFrustum(-1, 1, -1, 1, 1, 1000);
+        glFrustum(-width/float(height), width/float(height), -1, 1, 1, 1000);
         glRotatef(pitch * 180 / PI, 1, 0, 0);
         glRotatef(-yaw * 180 / PI, 0, 1, 0);
         glTranslatef(-camx, -camy, -camz);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
+        glBindBuffer(GL_ARRAY_BUFFER, resources.vertexbuffer);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(packedvert), (void*)0);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glNormalPointer(GL_FLOAT, sizeof(packedvert), (void*)sizeof(vec3));
 
-        for (int i = -3; i <= 3; i++)
+        for (int i = -10; i <= 10; i++)
         {
-            for (int j = -3; j <= 3; j++)
+            for (int j = -10; j <= 10; j++)
             {
-                chunk *chk = wld.getChunk(i + camx / chunk_size + 0.5, 0, j + camz / chunk_size + 0.5);
+                int chkcoordx, chkcoordy, chkcoordz;
+                chkcoordx = i + camx / chunk_size + 0.5;
+                chkcoordy = 0;
+                chkcoordz =  j + camz / chunk_size + 0.5;
+                glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
+                chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
                 if (chk)
                     chk->draw();
             }
         }
+
+        glDisableClientState(GL_VERTEX_ARRAY);
 
         glFlush();
 

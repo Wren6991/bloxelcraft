@@ -108,7 +108,7 @@ texdata loadTGA(std::string filename)
 
     if (!f)
     {
-        fprintf(stderr, "Unable to open %s for reading\n", filename);
+        fprintf(stderr, "Unable to open %s for reading\n", filename.c_str());
         throw(error());
     }
 
@@ -116,19 +116,19 @@ texdata loadTGA(std::string filename)
 
     if (read != sizeof(header))
     {
-        fprintf(stderr, "%s has incomplete tga header\n", filename);
+        fprintf(stderr, "%s has incomplete tga header\n", filename.c_str());
         fclose(f);
         throw(error());
     }
     if (header.data_type_code != 2)
     {
-        fprintf(stderr, "%s is not an uncompressed RGB tga file\n", filename);
+        fprintf(stderr, "%s is not an uncompressed RGB tga file\n", filename.c_str());
         fclose(f);
         throw(error());
     }
     if (header.bits_per_pixel != 24)
     {
-        fprintf(stderr, "%s is not a 24-bit uncompressed RGB tga file\n", filename);
+        fprintf(stderr, "%s is not a 24-bit uncompressed RGB tga file\n", filename.c_str());
         fclose(f);
         throw(error());
     }
@@ -136,7 +136,7 @@ texdata loadTGA(std::string filename)
     for (i = 0; i < header.id_length; ++i)
         if (getc(f) == EOF)
         {
-            fprintf(stderr, "%s has incomplete id string\n", filename);
+            fprintf(stderr, "%s has incomplete id string\n", filename.c_str());
             fclose(f);
             throw(error());
         }
@@ -145,7 +145,7 @@ texdata loadTGA(std::string filename)
     for (i = 0; i < color_map_size; ++i)
         if (getc(f) == EOF)
         {
-            fprintf(stderr, "%s has incomplete color map\n", filename);
+            fprintf(stderr, "%s has incomplete color map\n", filename.c_str());
             fclose(f);
             throw(error());
         }
