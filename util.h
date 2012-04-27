@@ -17,6 +17,17 @@ struct vec3
     std::string tostring();
 };
 
+struct vec2
+{
+    float x, y;
+    vec2() {}
+    vec2(float x_, float y_) {x = x_; y = y_;}
+    vec2 operator+(vec2);
+    vec2 operator-(vec2);
+    vec2 operator*(float);
+    float dot(vec2);
+};
+
 struct packedvert
 {
     vec3 pos;
@@ -33,6 +44,7 @@ struct texdata
 
 texdata loadTGA(std::string filename);
 
+std::string getFileContents(std::string filename);
 GLuint makeShader(GLenum shadertype, std::string source);
 GLuint makeProgram(GLuint vshader, GLuint fshader);
 GLuint makeBuffer(GLenum type, const char* data, GLsizei length);

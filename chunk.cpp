@@ -34,9 +34,9 @@ chunk::chunk(vec3 chunkpos_)
             for (int k = 0; k < chunk_size; k++)
             {
                 float z = k + offsz;
-                if (y < 8 * (sin(x * 0.2) + sin(z * 0.2)))
+                if (y < 16 + 6 * (sin(x * 0.2) + sin(z * 0.2)))
                 {
-                    blocks[blkindx(i, j, k)] =  y < 0 ? blk_stone : blk_dirt;
+                    blocks[blkindx(i, j, k)] =  y < 2 * (sin(x * 0.3) + sin(z * 0.3)) ? blk_stone : blk_dirt;
                 }
                 else
                 {
@@ -46,6 +46,17 @@ chunk::chunk(vec3 chunkpos_)
             }
         }
     }
+
+    glGenTextures(1, &blocktexture);
+    glBindTexture(GL_TEXTURE_3D, blocktexture);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, chunk_size, chunk_size, chunk_size, 0, GL_RED, GL_UNSIGNED_BYTE, (void*) blocks);
 
     indexbuffer = 0;
 
@@ -146,6 +157,29 @@ void chunk::buildmesh()
 
 void chunk::draw()
 {
+    glBindTexture(GL_TEXTURE_3D, blocktexture);
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexbuffer);
     glDrawElements(GL_TRIANGLES, ntriangles * 3, GL_UNSIGNED_INT, (void*)0);
 }
+
+char chunk::getBlock(int x, int y, int z)
+{
+    return blocks[blkindx(x, y, z)];
+}
+
+char chunk::getBlock(float x, float y, float z)
+{
+    return blocks[blkindx(floor(x), floor(y), floor(z))];
+}
+
+void chunk::setBlock(int x, int y, int z, char blockid)
+{
+    blocks[blkindx(x, y, z)] = blockid;
+}
+
+void chunk::setBlock(float x, float y, float z, char blockid)
+{
+    blocks[blkindx(floor(x), floor(y), floor(z))] = blockid;
+}
+

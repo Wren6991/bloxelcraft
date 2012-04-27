@@ -23,6 +23,26 @@ vec3 vec3::operator*(float s)
     return vec3(x * s, y * s, z * s);
 }
 
+vec2 vec2::operator+(vec2 v)
+{
+    return vec2(x + v.x, y + v.y);
+}
+
+vec2 vec2::operator-(vec2 v)
+{
+    return vec2(x - v.x, y - v.y);
+}
+
+vec2 vec2::operator*(float s)
+{
+    return vec2(x * s, y * s);
+}
+
+float vec2::dot(vec2 v)
+{
+    return x * v.x + y * v.y;
+}
+
 std::string vec3::tostring()
 {
     std::cout << x << " " << y << " " << z << "\n";

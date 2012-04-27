@@ -19,15 +19,20 @@ struct
     GLuint program;
     GLuint vertexbuffer;
     GLuint posoffset;
+    GLuint blocktexture;
+    GLuint facetextures;
+    GLuint facetextureloc;
 } resources;
 
 void makeResources()
 {
-    resources.fshader = makeShader(GL_FRAGMENT_SHADER, "J:/bloxelcraft/f.glsl");
-    resources.vshader = makeShader(GL_VERTEX_SHADER, "J:/bloxelcraft/v.glsl");
+    resources.fshader = makeShader(GL_FRAGMENT_SHADER, "I:/bloxelcraft/f.glsl");
+    resources.vshader = makeShader(GL_VERTEX_SHADER, "I:/bloxelcraft/v.glsl");
     resources.program = makeProgram(resources.vshader, resources.fshader);
 
     resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
+    resources.blocktexture = glGetUniformLocation(resources.program, "blocktexture");
+    resources.facetextureloc = glGetUniformLocation(resources.program, "facetextures");
 
     std::cout << "posoffset " << resources.posoffset << "\n";
 
@@ -79,7 +84,15 @@ void makeResources()
     glBufferData(GL_ARRAY_BUFFER, 6 * (chunk_size + 1)*(chunk_size + 1)*(chunk_size + 1) * sizeof(packedvert), &verts[0], GL_STATIC_DRAW);
 
 
+    const char *textures = getFileContents("I:/bloxelcraft/data/tex_packed.tga").c_str() + 18;
 
+    glGenTextures(1, &resources.facetextures);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_WRAP_BORDER);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_WRAP_BORDER);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, 16, 16, 5, 0, GL_BGR, GL_UNSIGNED_BYTE, textures);
 }
 
 
@@ -89,9 +102,11 @@ int main()
     int     frame = 0;
     bool    running = true;
 
+    std::cout << (int)0.5f << " " << (int) 0.9f << " " << (int) -0.5f;
+
     glfwInit();
 
-    if( !glfwOpenWindow( 512, 512, 0, 0, 0, 0, 0, 0, GLFW_WINDOW ) )
+    if( !glfwOpenWindow( 640, 480, 0, 0, 0, 0, 0, 0, GLFW_WINDOW ) )
     {
         glfwTerminate();
         return 0;
@@ -164,6 +179,32 @@ int main()
             camz += dist * cos(yaw) * cos(pitch);
         }
 
+        //float dist = 0;
+        /*vec3 campos(camx, camy, camz);
+        vec3 raydir(sin(-yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch));
+        vec3 rpos;
+        bool hit = false;
+        for(int i = 0; i < 20; i++)
+        {
+            rpos = campos + raydir * i;
+            if (wld.getBlock(rpos.x, rpos.y, rpos.z))
+            {
+                hit = true;
+                break;
+            }
+        }
+
+        if (hit)
+        {
+            wld.setBlock(rpos.x, rpos.y, rpos.z, blk_air);
+            wld.getChunkAlways(rpos.x / chunk_size, rpos.y / chunk_size, rpos.z / chunk_size)->buildmesh();
+        }*/
+
+        wld.setBlock(camx, camy, camz, blk_air);
+        wld.getChunkAlways(camx / chunk_size, camy / chunk_size, camz / chunk_size)->buildmesh();
+
+
+
         wld.updateLoadedChunks();
 
         //////////////////////////////////////////DRAW
@@ -193,28 +234,44 @@ int main()
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(resources.facetextureloc, 0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
+
         glBindBuffer(GL_ARRAY_BUFFER, resources.vertexbuffer);
         glEnableClientState(GL_VERTEX_ARRAY);
         glVertexPointer(3, GL_FLOAT, sizeof(packedvert), (void*)0);
         glEnableClientState(GL_NORMAL_ARRAY);
         glNormalPointer(GL_FLOAT, sizeof(packedvert), (void*)sizeof(vec3));
 
-        for (int i = -10; i <= 10; i++)
+        vec2 camdir(-sin(yaw), -cos(yaw));
+
+        for (int i = -3; i <= 3; i++)
         {
-            for (int j = -10; j <= 10; j++)
+            for (int j = -3; j <= 3; j++)
             {
-                int chkcoordx, chkcoordy, chkcoordz;
-                chkcoordx = i + camx / chunk_size + 0.5;
-                chkcoordy = 0;
-                chkcoordz =  j + camz / chunk_size + 0.5;
-                glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
-                chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
-                if (chk)
-                    chk->draw();
+                vec2 adjustedpos = vec2(i, j) + camdir * 3;
+                if (camdir.dot(adjustedpos) > 0.3)
+                {
+                    int chkcoordx, chkcoordy, chkcoordz;
+                    chkcoordx = i + camx / chunk_size;// + 0.5;
+                    chkcoordy = 0;
+                    chkcoordz =  j + camz / chunk_size;// + 0.5;
+                    glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
+                    glActiveTexture(GL_TEXTURE1);
+                    glUniform1i(resources.blocktexture, 1);
+                    chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
+                    if (chk)
+                    {
+                        chk->draw();
+                    }
+                }
+
             }
         }
 
         glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
 
         glFlush();
 

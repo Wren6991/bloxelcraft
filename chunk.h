@@ -35,7 +35,7 @@ class chunk
 
     GLuint vposbuffer;
     GLuint indexbuffer;
-    GLuint blockidtexture;
+    GLuint blocktexture;
     unsigned int ntriangles;
 
     char blocks[chunk_size * chunk_size * chunk_size];
@@ -44,6 +44,10 @@ class chunk
 
     void buildmesh();
     void draw();
+    char getBlock(float x, float y, float z);       //overload because we want floor for float->int instead of round towards 0.
+    char getBlock(int x, int y, int z);
+    void setBlock(float x, float y, float z, char blockid);       //overload because we want floor for float->int instead of round towards 0.
+    void setBlock(int x, int y, int z, char blockid);
 
     chunk();
     chunk(vec3 chunkpos_);
