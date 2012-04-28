@@ -10,6 +10,20 @@
 #include "chunk.h"
 #include "world.h"
 
+// TODO:
+// proper terrain generation
+// controls
+// player physics
+// drawing visible sides only (still single VBO, separate IBO for each face direction for each chunk)
+// block placing
+// proper block selection
+// HUD
+// more block typed
+
+// lighting
+// fluids
+
+
 const float PI = 3.14159265358979323846;
 
 struct
@@ -26,8 +40,8 @@ struct
 
 void makeResources()
 {
-    resources.fshader = makeShader(GL_FRAGMENT_SHADER, "I:/bloxelcraft/f.glsl");
-    resources.vshader = makeShader(GL_VERTEX_SHADER, "I:/bloxelcraft/v.glsl");
+    resources.fshader = makeShader(GL_FRAGMENT_SHADER, "J:/bloxelcraft/f.glsl");
+    resources.vshader = makeShader(GL_VERTEX_SHADER, "J:/bloxelcraft/v.glsl");
     resources.program = makeProgram(resources.vshader, resources.fshader);
 
     resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
@@ -84,7 +98,7 @@ void makeResources()
     glBufferData(GL_ARRAY_BUFFER, 6 * (chunk_size + 1)*(chunk_size + 1)*(chunk_size + 1) * sizeof(packedvert), &verts[0], GL_STATIC_DRAW);
 
 
-    const char *textures = getFileContents("I:/bloxelcraft/data/tex_packed.tga").c_str() + 18;
+    const char *textures = getFileContents("J:/bloxelcraft/data/tex_packed.tga").c_str() + 18;
 
     glGenTextures(1, &resources.facetextures);
     glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
@@ -179,9 +193,8 @@ int main()
             camz += dist * cos(yaw) * cos(pitch);
         }
 
-        //float dist = 0;
-        /*vec3 campos(camx, camy, camz);
-        vec3 raydir(sin(-yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch));
+        vec3 campos(camx, camy, camz);
+        vec3 raydir(sin(-yaw) * cos(pitch), sin(-pitch), -cos(yaw) * cos(pitch));
         vec3 rpos;
         bool hit = false;
         for(int i = 0; i < 20; i++)
@@ -194,15 +207,11 @@ int main()
             }
         }
 
-        if (hit)
+        if (hit && glfwGetKey(GLFW_KEY_SPACE))
         {
             wld.setBlock(rpos.x, rpos.y, rpos.z, blk_air);
             wld.getChunkAlways(rpos.x / chunk_size, rpos.y / chunk_size, rpos.z / chunk_size)->buildmesh();
-        }*/
-
-        wld.setBlock(camx, camy, camz, blk_air);
-        wld.getChunkAlways(camx / chunk_size, camy / chunk_size, camz / chunk_size)->buildmesh();
-
+        }
 
 
         wld.updateLoadedChunks();
@@ -246,17 +255,17 @@ int main()
 
         vec2 camdir(-sin(yaw), -cos(yaw));
 
-        for (int i = -3; i <= 3; i++)
+        for (int i = -10; i <= 10; i++)
         {
-            for (int j = -3; j <= 3; j++)
+            for (int j = -10; j <= 10; j++)
             {
                 vec2 adjustedpos = vec2(i, j) + camdir * 3;
                 if (camdir.dot(adjustedpos) > 0.3)
                 {
                     int chkcoordx, chkcoordy, chkcoordz;
-                    chkcoordx = i + camx / chunk_size;// + 0.5;
+                    chkcoordx = floor(i + camx / chunk_size);// + 0.5;
                     chkcoordy = 0;
-                    chkcoordz =  j + camz / chunk_size;// + 0.5;
+                    chkcoordz =  floor(j + camz / chunk_size);// + 0.5;
                     glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
                     glActiveTexture(GL_TEXTURE1);
                     glUniform1i(resources.blocktexture, 1);
@@ -273,12 +282,50 @@ int main()
         glDisableClientState(GL_VERTEX_ARRAY);
         glDisableClientState(GL_NORMAL_ARRAY);
 
+        glUseProgram(0);
+
+        if (hit)
+        {
+            vec3 cubepos(floorf(rpos.x), floorf(rpos.y), floorf(rpos.z));
+            glBegin(GL_LINES);
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z + 1);
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z + 1);
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z + 1);
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z + 1);
+
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z + 1);
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z + 1);
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z + 1);
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z + 1);
+
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x    , cubepos.y    , cubepos.z + 1);
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z + 1);
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x + 1, cubepos.y + 1, cubepos.z + 1);
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z    );
+            glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z + 1);
+            glEnd();
+
+
+        }
+
         glFlush();
 
         glfwSwapInterval(1);
         glfwSwapBuffers();
 
-        glUseProgram(0);
+
+
 
         // exit if ESC was pressed or window was closed
         running = !glfwGetKey(GLFW_KEY_ESC) && glfwGetWindowParam( GLFW_OPENED);

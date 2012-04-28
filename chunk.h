@@ -12,7 +12,8 @@ typedef enum blocktype
     blk_air = 0,
     blk_stone,
     blk_dirt,
-    blk_wood
+    blk_wood,
+    blk_grass
 } blocktype;
 
 typedef enum face_orientation
@@ -31,7 +32,8 @@ class chunk
     private:
 
     // position of bottom-left-near corner:
-    vec3 chunkpos;
+    public: vec3 chunkpos;
+    private:
 
     GLuint vposbuffer;
     GLuint indexbuffer;

@@ -17,7 +17,6 @@ inline int blkindx(int x, int y, int z)
 
 chunk::chunk(vec3 chunkpos_)
 {
-    srand(12345678);
     std::cout << "creating chunk at " << chunkpos_.x << " " << chunkpos_.y << " " << chunkpos_.z << "\n";
     chunkpos = chunkpos_;
 
@@ -36,7 +35,7 @@ chunk::chunk(vec3 chunkpos_)
                 float z = k + offsz;
                 if (y < 16 + 6 * (sin(x * 0.2) + sin(z * 0.2)))
                 {
-                    blocks[blkindx(i, j, k)] =  y < 2 * (sin(x * 0.3) + sin(z * 0.3)) ? blk_stone : blk_dirt;
+                    blocks[blkindx(i, j, k)] =  y < 2 * (sin(x * 0.3) + sin(z * 0.3)) + 4 ? blk_stone : blk_grass;
                 }
                 else
                 {
@@ -56,7 +55,7 @@ chunk::chunk(vec3 chunkpos_)
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
 
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, chunk_size, chunk_size, chunk_size, 0, GL_RED, GL_UNSIGNED_BYTE, (void*) blocks);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, chunk_size, chunk_size, chunk_size, 0, GL_RED, GL_UNSIGNED_BYTE, (void*) 0);  //don't upload it yet - we'll do that in the buildmesh method.
 
     indexbuffer = 0;
 
@@ -152,6 +151,9 @@ void chunk::buildmesh()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, vertices.size() * sizeof(GLuint), &vertices[0], GL_STATIC_DRAW);
     ntriangles = vertices.size() / 3;
     std::cout << "Chunk has " << ntriangles << " triangles.\n";
+
+    glBindTexture(GL_TEXTURE_3D, blocktexture);
+    glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, chunk_size, chunk_size, chunk_size, GL_RED, GL_UNSIGNED_BYTE, (void*) blocks);
 }
 
 
@@ -175,11 +177,13 @@ char chunk::getBlock(float x, float y, float z)
 
 void chunk::setBlock(int x, int y, int z, char blockid)
 {
+    std::cout << "setting block at location " << chunkpos.x + x << ", " << chunkpos.y + y << ", " << chunkpos.z + z << " to " << blockid << "\n";
     blocks[blkindx(x, y, z)] = blockid;
 }
 
 void chunk::setBlock(float x, float y, float z, char blockid)
 {
+    std::cout << "setting block at location " << chunkpos.x + x << ", " << chunkpos.y + y << ", " << chunkpos.z + z << " to " << blockid << "\n";
     blocks[blkindx(floor(x), floor(y), floor(z))] = blockid;
 }
 

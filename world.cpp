@@ -58,8 +58,18 @@ chunk* world::getChunkAlways(float x, float y, float z)
 
 char world::getBlock(int x, int y, int z)
 {
-    chunk* chk = getChunkAlways(x / chunk_size, y / chunk_size, z / chunk_size);
-    return chk->getBlock(x % chunk_size, y % chunk_size, z % chunk_size);
+    int chkx, chky, chkz;
+    chkx = floorf((float)x / chunk_size);
+    chky = floorf((float)y / chunk_size);
+    chkz = floorf((float)z / chunk_size);
+    chunk* chk = getChunkAlways(chkx, chky, chkz);
+    return chk->getBlock(x  - chkx * chunk_size, y - chky *chunk_size, z - chkz * chunk_size);
+    // we can't just modulo these numbers with the chunk size.
+    // consider the case x = -1;
+    // - chunk = -1
+    // - x % chunk_size = -1
+    // - world pos = chunkpos * chunk_size + x (== -33)
+    // - this is wrong!
 }
 
 char world::getBlock(float x, float y, float z)
@@ -69,12 +79,18 @@ char world::getBlock(float x, float y, float z)
 
 void world::setBlock(int x, int y, int z, char blockid)
 {
-    chunk* chk = getChunkAlways(x / chunk_size, y / chunk_size, z / chunk_size);
-    chk->setBlock(x % chunk_size, y % chunk_size, z % chunk_size, blockid);
+
+    int chkx, chky, chkz;
+    chkx = floorf((float)x / chunk_size);
+    chky = floorf((float)y / chunk_size);
+    chkz = floorf((float)z / chunk_size);
+    chunk* chk = getChunkAlways(chkx, chky, chkz);
+    chk->setBlock(x  - chkx * chunk_size, y - chky *chunk_size, z - chkz * chunk_size, blockid);
 }
 
 void world::setBlock(float x, float y, float z, char blockid)
 {
+    std::cout << "Float coords: " << x << ", " << y << ", " << z << "  ";
     setBlock((int)floor(x), (int)floor(y), (int)floor(z), blockid);
 }
 
