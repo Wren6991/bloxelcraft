@@ -20,7 +20,7 @@ void main()
 	
     vec2 texcoord;
     if (normal.x * normal.x > dot(normal.yz, normal.yz))
-    	texcoord = pos.yz;
+    	texcoord = pos.zy;
     else if (normal.y * normal.y > dot(normal.xz, normal.xz))
 	texcoord = pos.xz;
     else

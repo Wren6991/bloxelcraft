@@ -2,6 +2,7 @@
 
 #include <GL/glew.h>
 #include <GL/glfw.h>
+#include "J:/CodeBlocks/MinGW/include/glm/gtc/noise.hpp"
 #include <iostream>
 #include <cmath>
 #include <sstream>
@@ -9,6 +10,8 @@
 #include "util.h"
 #include "chunk.h"
 #include "world.h"
+
+
 
 // TODO:
 // proper terrain generation
@@ -18,13 +21,17 @@
 // block placing
 // proper block selection
 // HUD
-// more block typed
+// more block types
+// proper view frustum culling (or view cone?)
 
 // lighting
+// - per-vertex soft lighting - calc on CPU, upload as 3d texture, sample with linear interp for each fragment
 // fluids
 
 
 const float PI = 3.14159265358979323846;
+
+const float playerspeed = 0.15;
 
 struct
 {
@@ -37,6 +44,30 @@ struct
     GLuint facetextures;
     GLuint facetextureloc;
 } resources;
+
+struct
+{
+    struct
+    {
+        bool W;
+        bool A;
+        bool S;
+        bool D;
+        bool MouseL;
+        bool MouseR;
+    } held;
+
+    struct
+    {
+        /*bool W;
+        bool A;
+        bool S;
+        bool D;*/
+        bool MouseL;
+        bool MouseR;
+    } newPress;
+
+} keys;
 
 void makeResources()
 {
@@ -103,14 +134,63 @@ void makeResources()
     glGenTextures(1, &resources.facetextures);
     glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_WRAP_BORDER);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_WRAP_BORDER);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, 16, 16, 5, 0, GL_BGR, GL_UNSIGNED_BYTE, textures);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, 16, 16, blk_nof_blocks, 0, GL_BGR, GL_UNSIGNED_BYTE, textures);
+    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+}
+
+void GLFWCALL keyCallback(int character, int action)
+{
+    switch(character)
+    {
+        case 'W':
+            keys.held.W = action;
+            break;
+        case 'S':
+            keys.held.S = action;
+            break;
+        case 'A':
+            keys.held.A = action;
+            break;
+        case 'D':
+            keys.held.D = action;
+            break;
+        default:
+            break;
+    }
+    std::cout << "W: " << keys.held.W << "\n";
+}
+
+void checkControls()
+{
+    if(glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT))
+    {
+            keys.newPress.MouseL = !keys.held.MouseL;
+            keys.held.MouseL = true;
+    }
+    else
+    {
+        keys.newPress.MouseL = false;
+        keys.held.MouseL = false;
+    }
+
+    if(glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT))
+    {
+            keys.newPress.MouseR = !keys.held.MouseR;
+            keys.held.MouseR = true;
+    }
+    else
+    {
+        keys.newPress.MouseR = false;
+        keys.held.MouseR = false;
+    }
+
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
     int     width, height;
     int     frame = 0;
@@ -159,14 +239,15 @@ int main()
 
     double time = glfwGetTime();
 
-    chunk chk(vec3(0, -16, 0));
+    glfwSetKeyCallback(keyCallback);
 
     while(running)
     {
-
         ////////////////////////////////////////UPDATE
 
         frame++;
+        checkControls();
+
         if (glfwGetTime() - time > 1.0)
         {
             time = glfwGetTime();
@@ -180,18 +261,42 @@ int main()
         lastmousey = mousey;
         glfwGetMousePos(&mousex, &mousey);
 
-        if (glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT))
+        if (!glfwGetKey(GLFW_KEY_ESC) && glfwGetWindowParam(GLFW_ACTIVE))
         {
-            pitch += (mousey - lastmousey) * 0.01;
-            yaw -= (mousex - lastmousex) * 0.01;
+            glfwDisable(GLFW_MOUSE_CURSOR);
+            pitch += (mousey - height / 2) * 0.01;
+            yaw -= (mousex - width / 2) * 0.01;
+            glfwSetMousePos(width / 2, height / 2);
+
         }
-        else if (glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT))
+        else
         {
-            double dist = (mousey - lastmousey) * 0.05;
-            camx += dist * sin(yaw) * cos(pitch);
-            camy += dist * sin(pitch);
-            camz += dist * cos(yaw) * cos(pitch);
+            glfwEnable(GLFW_MOUSE_CURSOR);
         }
+
+        if (keys.held.W || keys.held.S)
+        {
+            double dist;
+            if (keys.held.W)
+                dist = playerspeed;
+            else
+                dist = -playerspeed;
+            camx -= dist * sin(yaw) * cos(pitch);
+            camy -= dist * sin(pitch);
+            camz -= dist * cos(yaw) * cos(pitch);
+        }
+
+        if (keys.held.A || keys.held.D)
+        {
+            double dist;
+            if (keys.held.A)
+                dist = playerspeed;
+            else
+                dist = -playerspeed;
+            camx -= dist * cos(yaw);
+            camz -= dist * sin(-yaw);
+        }
+
 
         vec3 campos(camx, camy, camz);
         vec3 raydir(sin(-yaw) * cos(pitch), sin(-pitch), -cos(yaw) * cos(pitch));
@@ -207,10 +312,15 @@ int main()
             }
         }
 
-        if (hit && glfwGetKey(GLFW_KEY_SPACE))
+        if (hit && keys.newPress.MouseL)
         {
             wld.setBlock(rpos.x, rpos.y, rpos.z, blk_air);
             wld.getChunkAlways(rpos.x / chunk_size, rpos.y / chunk_size, rpos.z / chunk_size)->buildmesh();
+        }
+        else if (hit && keys.newPress.MouseR)
+        {
+            wld.setBlock(rpos.x - raydir.x, rpos.y - raydir.y, rpos.z - raydir.z, blk_wood);
+            wld.getChunkAlways((rpos.x - raydir.x) / chunk_size, (rpos.y - raydir.y) / chunk_size, (rpos.z - raydir.z) / chunk_size)->buildmesh();
         }
 
 
@@ -236,7 +346,7 @@ int main()
 
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glFrustum(-width/float(height), width/float(height), -1, 1, 1, 1000);
+        glFrustum(-0.5 * width/float(height), 0.5 * width/float(height), -0.5, 0.5, 0.5, 1000);
         glRotatef(pitch * 180 / PI, 1, 0, 0);
         glRotatef(-yaw * 180 / PI, 0, 1, 0);
         glTranslatef(-camx, -camy, -camz);
@@ -255,9 +365,9 @@ int main()
 
         vec2 camdir(-sin(yaw), -cos(yaw));
 
-        for (int i = -10; i <= 10; i++)
+        for (int i = -5; i <= 5; i++)
         {
-            for (int j = -10; j <= 10; j++)
+            for (int j = -5; j <= 5; j++)
             {
                 vec2 adjustedpos = vec2(i, j) + camdir * 3;
                 if (camdir.dot(adjustedpos) > 0.3)
@@ -328,7 +438,7 @@ int main()
 
 
         // exit if ESC was pressed or window was closed
-        running = !glfwGetKey(GLFW_KEY_ESC) && glfwGetWindowParam( GLFW_OPENED);
+        running = glfwGetWindowParam(GLFW_OPENED);
     }
 
     glfwTerminate();

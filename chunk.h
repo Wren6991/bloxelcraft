@@ -13,7 +13,9 @@ typedef enum blocktype
     blk_stone,
     blk_dirt,
     blk_wood,
-    blk_grass
+    blk_grass,
+    blk_sand,
+    blk_nof_blocks
 } blocktype;
 
 typedef enum face_orientation

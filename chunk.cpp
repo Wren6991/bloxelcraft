@@ -1,8 +1,30 @@
 #include "chunk.h"
+
 #include <vector>
 #include <stdlib.h>
 #include <iostream>
 #include <cmath>
+
+//#include "noise.h"
+
+#include "J:/CodeBlocks/MinGW/include/glm/gtc/noise.hpp"
+
+inline float fsimplex(glm::vec2 pos, int octaves, float persistence)
+{
+    if (octaves > 0)
+        return glm::simplex(pos) + persistence * fsimplex(pos * 2.f, octaves - 1, persistence);
+    else
+        return 0;
+}
+
+inline float fsimplex(glm::vec3 pos, int octaves, float persistence)
+{
+    if (octaves > 0)
+        return glm::simplex(pos) + persistence * fsimplex(pos * 2.f, octaves - 1, persistence);
+    else
+        return 0;
+}
+
 
 inline int indexfrompos(int x, int y, int z)
 {
@@ -20,6 +42,15 @@ chunk::chunk(vec3 chunkpos_)
     std::cout << "creating chunk at " << chunkpos_.x << " " << chunkpos_.y << " " << chunkpos_.z << "\n";
     chunkpos = chunkpos_;
 
+    float heightfield[chunk_size][chunk_size];
+    for (int i = 0; i < chunk_size; i++)
+    {
+        for (int j = 0; j < chunk_size; j++)
+        {
+            heightfield[i][j] = 14.f + 8.f * fsimplex(glm::vec2((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f), 3, 0.5f);//20.0 * fbm((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f, 4, 2.f, 0.5f, 12345678);
+        }
+    }
+
     float offsx = chunkpos.x;
     float offsy = chunkpos.y;
     float offsz = chunkpos.z;
@@ -33,9 +64,10 @@ chunk::chunk(vec3 chunkpos_)
             for (int k = 0; k < chunk_size; k++)
             {
                 float z = k + offsz;
-                if (y < 16 + 6 * (sin(x * 0.2) + sin(z * 0.2)))
+                float density = heightfield[i][k] - y;
+                if (density > 0)
                 {
-                    blocks[blkindx(i, j, k)] =  y < 2 * (sin(x * 0.3) + sin(z * 0.3)) + 4 ? blk_stone : blk_grass;
+                    blocks[blkindx(i, j, k)] =  y < 10 ? blk_sand : heightfield[i][k] - y < 1 ? blk_grass : blk_dirt;
                 }
                 else
                 {
