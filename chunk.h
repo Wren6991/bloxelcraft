@@ -10,6 +10,7 @@ const int nvertindices = (chunk_size + 1) * (chunk_size + 1) * (chunk_size + 1);
 typedef enum blocktype
 {
     blk_air = 0,
+    blk_water,
     blk_stone,
     blk_dirt,
     blk_wood,

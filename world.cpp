@@ -32,7 +32,7 @@ chunk* world::getChunk(int x, int y, int z)
 
 chunk* world::getChunk(float x, float y, float z)
 {
-    return getChunk((int)floor(x), (int)floor(y), (int)floor(z));
+    return getChunk((int)floorf(x), (int)floorf(y), (int)floorf(z));
 }
 
 

@@ -14,6 +14,10 @@ struct vec3
     vec3 operator+(const vec3&);
     vec3 operator-(const vec3&);
     vec3 operator*(float);
+    float length();
+    float length2();
+    vec3 normalize();
+    float dot(vec3);
     std::string tostring();
 };
 

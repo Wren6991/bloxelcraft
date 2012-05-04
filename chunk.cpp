@@ -47,7 +47,7 @@ chunk::chunk(vec3 chunkpos_)
     {
         for (int j = 0; j < chunk_size; j++)
         {
-            heightfield[i][j] = 14.f + 8.f * fsimplex(glm::vec2((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f), 3, 0.5f);//20.0 * fbm((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f, 4, 2.f, 0.5f, 12345678);
+            heightfield[i][j] = 5.f + 16.f * (glm::simplex(glm::vec2((i + chunkpos.x) * 0.003f, (j + chunkpos.z) * 0.003f)) * 0.25f + 0.75f) * fsimplex(glm::vec2((i + chunkpos.x) * 0.005f, (j + chunkpos.z) * 0.005f), 4, 0.5f);//20.0 * fbm((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f, 4, 2.f, 0.5f, 12345678);
         }
     }
 
@@ -67,11 +67,11 @@ chunk::chunk(vec3 chunkpos_)
                 float density = heightfield[i][k] - y;
                 if (density > 0)
                 {
-                    blocks[blkindx(i, j, k)] =  y < 10 ? blk_sand : heightfield[i][k] - y < 1 ? blk_grass : blk_dirt;
+                    blocks[blkindx(i, j, k)] =  y < -5.f? blk_stone : y < 3 ? blk_sand : heightfield[i][k] - y < 1 ? blk_grass : blk_dirt;
                 }
                 else
                 {
-                    blocks[blkindx(i, j, k)] = blk_air;
+                    blocks[blkindx(i, j, k)] = y <= 0 ? blk_water : blk_air;
                 }
 
             }

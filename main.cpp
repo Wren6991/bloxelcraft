@@ -12,7 +12,6 @@
 #include "world.h"
 
 
-
 // TODO:
 // proper terrain generation
 // controls
@@ -23,15 +22,43 @@
 // HUD
 // more block types
 // proper view frustum culling (or view cone?)
+// render sphere of chunks instead of plane
 
 // lighting
 // - per-vertex soft lighting - calc on CPU, upload as 3d texture, sample with linear interp for each fragment
 // fluids
 
 
+inline float sgnf(float x)
+{
+    if (x > 0.f)
+        return 1.f;
+    else if (x < 0.f)
+        return -1.f;
+    else
+        return 0.f;
+}
+
+inline float roundupdown(float x, bool up)
+{
+    return up? ceilf(x) : floorf(x);
+}
+
 const float PI = 3.14159265358979323846;
 
+const float drawradius = 10.f;
+const float drawsquashy = 1.5f;
+
 const float playerspeed = 0.15;
+
+std::vector <vec3> chunkPositions;
+
+typedef enum {
+    side_none = 0,
+    side_x,
+    side_y,
+    side_z
+} side_enum;
 
 struct
 {
@@ -139,6 +166,21 @@ void makeResources()
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_WRAP_BORDER);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, 16, 16, blk_nof_blocks, 0, GL_BGR, GL_UNSIGNED_BYTE, textures);
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+
+    for (int i = -drawradius; i <= drawradius; i++)
+    {
+        for (int j = -drawradius; j <= drawradius; j++)
+        {
+            for (int k = -drawradius; k <= drawradius; k++)
+            {
+                vec3 pos(i, j, k);
+                if (vec3(pos.x, pos.y * drawsquashy, pos.z).length() <= drawradius)
+                {
+                    chunkPositions.push_back(pos);
+                }
+            }
+        }
+    }
 }
 
 void GLFWCALL keyCallback(int character, int action)
@@ -241,6 +283,8 @@ int main(int argc, char **argv)
 
     glfwSetKeyCallback(keyCallback);
 
+    std::vector <vec3> oldposns;
+
     while(running)
     {
         ////////////////////////////////////////UPDATE
@@ -300,28 +344,109 @@ int main(int argc, char **argv)
 
         vec3 campos(camx, camy, camz);
         vec3 raydir(sin(-yaw) * cos(pitch), sin(-pitch), -cos(yaw) * cos(pitch));
-        vec3 rpos;
-        bool hit = false;
-        for(int i = 0; i < 20; i++)
+        vec3 rpos, closestpos, step;
+        side_enum hit = side_none;
+
+        std::vector <vec3> posns;
+
+        step = raydir * (1.f / raydir.x * sgnf(raydir.x));   //unit step in x...
+
+        if (raydir.x != 0)
         {
-            rpos = campos + raydir * i;
-            if (wld.getBlock(rpos.x, rpos.y, rpos.z))
+            step = raydir * (1.f / raydir.x);
+            rpos = campos - step * (campos.x - roundupdown(campos.x, raydir.x > 0));
+
+            posns.push_back(rpos);
+            while ((rpos - campos).length() < 20)
             {
-                hit = true;
-                break;
+                rpos = rpos + step;
+                posns.push_back(rpos);
+                if (wld.getBlock(rpos.x, rpos.y, rpos.z))
+                {
+                    closestpos = rpos;
+                    hit = side_x;
+                    break;
+                }
             }
         }
 
+        if (raydir.y != 0)
+        {
+            step = raydir * (1.f / raydir.y * sgnf(raydir.y));
+            rpos = campos - step * (campos.y - roundupdown(campos.y, raydir.y > 0));
+
+            while ((rpos - campos).length() < 20)
+            {
+                rpos = rpos + step;
+                if (wld.getBlock(rpos.x, rpos.y, rpos.z))
+                {
+                    if (hit)
+                    {
+                        if ((rpos - campos).length2() < (closestpos - campos).length2())
+                        {
+                            closestpos = rpos;
+                            hit = side_y;
+                        }
+                    }
+                    else
+                    {
+                        closestpos = rpos;
+                        hit = side_y;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (raydir.z != 0)
+        {
+            step = raydir * (1.f / raydir.z * sgnf(raydir.z));
+            rpos = campos - step * (campos.z - roundupdown(campos.z, raydir.z > 0));
+
+            while ((rpos - campos).length() < 20)
+            {
+                rpos = rpos + step;
+                if (wld.getBlock(rpos.x, rpos.y, rpos.z))
+                {
+                    if (hit)
+                    {
+                        if ((rpos - campos).length2() < (closestpos - campos).length2())
+                        {
+                            closestpos = rpos;
+                            hit = side_z;
+                        }
+                    }
+                    else
+                    {
+                        closestpos = rpos;
+                        hit = side_z;
+                    }
+                    break;
+                }
+            }
+        }
+
+
         if (hit && keys.newPress.MouseL)
         {
-            wld.setBlock(rpos.x, rpos.y, rpos.z, blk_air);
-            wld.getChunkAlways(rpos.x / chunk_size, rpos.y / chunk_size, rpos.z / chunk_size)->buildmesh();
+            wld.setBlock(closestpos.x, closestpos.y, closestpos.z, blk_air);
+            wld.getChunkAlways(closestpos.x / chunk_size, closestpos.y / chunk_size, closestpos.z / chunk_size)->buildmesh();
         }
         else if (hit && keys.newPress.MouseR)
         {
-            wld.setBlock(rpos.x - raydir.x, rpos.y - raydir.y, rpos.z - raydir.z, blk_wood);
-            wld.getChunkAlways((rpos.x - raydir.x) / chunk_size, (rpos.y - raydir.y) / chunk_size, (rpos.z - raydir.z) / chunk_size)->buildmesh();
+            vec3 cubepos = closestpos;
+            if (hit == side_x)
+                cubepos.x -= sgnf(raydir.x);
+            else if (hit == side_y)
+                cubepos.y -= sgnf(raydir.y);
+            else
+                cubepos.z -= sgnf(raydir.z);
+            wld.setBlock(cubepos.x, cubepos.y, cubepos.z, blk_wood);
+            wld.getChunkAlways(cubepos.x / chunk_size, cubepos.y / chunk_size, cubepos.z / chunk_size)->buildmesh();
         }
+
+        if (glfwGetKey(GLFW_KEY_SPACE))
+            oldposns = posns;
 
 
         wld.updateLoadedChunks();
@@ -363,31 +488,29 @@ int main(int argc, char **argv)
         glEnableClientState(GL_NORMAL_ARRAY);
         glNormalPointer(GL_FLOAT, sizeof(packedvert), (void*)sizeof(vec3));
 
-        vec2 camdir(-sin(yaw), -cos(yaw));
+        glActiveTexture(GL_TEXTURE1);
+        glUniform1i(resources.blocktexture, 1);
 
-        for (int i = -5; i <= 5; i++)
+        for (std::vector<vec3>::iterator iter = chunkPositions.begin(); iter != chunkPositions.end(); iter++)
         {
-            for (int j = -5; j <= 5; j++)
+            vec3 pos = *iter;
+            vec3 adjustedpos = pos + raydir * 1.5f;
+            if (raydir.dot(adjustedpos * (1.f / adjustedpos.length())) > 0.6f)
             {
-                vec2 adjustedpos = vec2(i, j) + camdir * 3;
-                if (camdir.dot(adjustedpos) > 0.3)
-                {
-                    int chkcoordx, chkcoordy, chkcoordz;
-                    chkcoordx = floor(i + camx / chunk_size);// + 0.5;
-                    chkcoordy = 0;
-                    chkcoordz =  floor(j + camz / chunk_size);// + 0.5;
-                    glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
-                    glActiveTexture(GL_TEXTURE1);
-                    glUniform1i(resources.blocktexture, 1);
-                    chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
-                    if (chk)
-                    {
-                        chk->draw();
-                    }
-                }
+                int chkcoordx = floorf(camx / chunk_size) + pos.x;
+                int chkcoordy = floorf(camy / chunk_size) + pos.y;
+                int chkcoordz = floorf(camz / chunk_size) + pos.z;
 
+                glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
+                chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
+                if (chk)
+                {
+                    chk->draw();
+                }
             }
+
         }
+
 
         glDisableClientState(GL_VERTEX_ARRAY);
         glDisableClientState(GL_NORMAL_ARRAY);
@@ -396,8 +519,16 @@ int main(int argc, char **argv)
 
         if (hit)
         {
-            vec3 cubepos(floorf(rpos.x), floorf(rpos.y), floorf(rpos.z));
+            vec3 cubepos(floorf(closestpos.x), floorf(closestpos.y), floorf(closestpos.z));
             glBegin(GL_LINES);
+
+            if (hit == side_x)
+                glColor3f(1.f, 0.f, 0.f);
+            else if (hit == side_y)
+                glColor3f(0.f, 1.f, 0.f);
+            else
+                glColor3f(0.f, 0.f, 1.0);
+
             glVertex3f(cubepos.x    , cubepos.y    , cubepos.z    );
             glVertex3f(cubepos.x + 1, cubepos.y    , cubepos.z    );
             glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z    );
@@ -425,9 +556,34 @@ int main(int argc, char **argv)
             glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z    );
             glVertex3f(cubepos.x    , cubepos.y + 1, cubepos.z + 1);
             glEnd();
-
-
         }
+
+        glPointSize(5.f);
+        glBegin(GL_POINTS);
+        glVertex3f(campos.x + step.x, campos.y + step.y, campos.z + step.z);
+        glEnd();
+
+        glPointSize(3.f);
+
+        glBegin(GL_POINTS);
+        glColor3f(1.f, 1.f, 1.f);
+        for (std::vector <vec3>::iterator iter = oldposns.begin(); iter != oldposns.end(); iter++)
+        {
+            glVertex3f(iter->x, iter->y, iter->z);
+        }
+        glEnd();
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glDisable(GL_DEPTH_TEST);
+
+        glBegin(GL_LINES);
+        glColor3f(1.f, 1.f, 1.f);
+        glVertex3f(   0.f, 0.01f, 0.f);
+        glVertex3f(   0.f,-0.01f, 0.f);
+        glVertex3f (0.01f,   0.f, 0.f);
+        glVertex3f(-0.01f,   0.f, 0.f);
+        glEnd();
 
         glFlush();
 

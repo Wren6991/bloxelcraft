@@ -23,6 +23,30 @@ vec3 vec3::operator*(float s)
     return vec3(x * s, y * s, z * s);
 }
 
+float vec3::length()
+{
+    return sqrtf(x * x + y * y + z * z);
+}
+
+float vec3::length2()
+{
+    return x * x + y * y + z * z;
+}
+
+vec3 vec3::normalize()
+{
+    float len = length();
+    x /= len;
+    y /= len;
+    z /= len;
+    return *this;
+}
+
+float vec3::dot(vec3 v)
+{
+    return x * v.x + y * v.y + z * v.z;
+}
+
 vec2 vec2::operator+(vec2 v)
 {
     return vec2(x + v.x, y + v.y);
