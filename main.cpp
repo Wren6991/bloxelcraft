@@ -46,12 +46,13 @@ inline float roundupdown(float x, bool up)
 
 const float PI = 3.14159265358979323846;
 
-const float drawradius = 5.f;
+const float drawradius = 11.f;
 const float drawsquashy = 1.5f;
 
 const float playerspeed = 0.15;
 
 std::vector <vec3> chunkPositions;
+std::string progDirectory;
 
 typedef enum {
     side_none = 0,
@@ -99,8 +100,8 @@ struct
 
 void makeResources()
 {
-    resources.fshader = makeShader(GL_FRAGMENT_SHADER, "J:/bloxelcraft/f.glsl");
-    resources.vshader = makeShader(GL_VERTEX_SHADER, "J:/bloxelcraft/v.glsl");
+    resources.fshader = makeShader(GL_FRAGMENT_SHADER, progDirectory + "data/terrain.f.glsl");
+    resources.vshader = makeShader(GL_VERTEX_SHADER, progDirectory + "data/terrain.v.glsl");
     resources.program = makeProgram(resources.vshader, resources.fshader);
 
     resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
@@ -158,7 +159,7 @@ void makeResources()
     glBufferData(GL_ARRAY_BUFFER, 6 * (chunk_size + 1)*(chunk_size + 1)*(chunk_size + 1) * sizeof(packedvert), &verts[0], GL_STATIC_DRAW);
 
 
-    const char *textures = getFileContents("J:/bloxelcraft/data/tex_packed.tga").c_str() + 18;
+    const char *textures = getFileContents(progDirectory + "data/tex_packed.tga").c_str() + 18;
 
     glGenTextures(1, &resources.facetextures);
     glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
@@ -236,6 +237,11 @@ void checkControls()
 
 int main(int argc, char **argv)
 {
+    progDirectory = argv[0];
+    int namestart = progDirectory.rfind("\\");
+    if (namestart == -1)
+        namestart = progDirectory.rfind("/");
+    progDirectory = progDirectory.substr(0, namestart + 1);          //inclusive of slash.
     int     width, height;
     int     frame = 0;
     bool    running = true;
@@ -434,7 +440,7 @@ int main(int argc, char **argv)
             wld.setBlock(closestpos.x, closestpos.y, closestpos.z, blk_air);
             wld.getChunkAlways(closestpos.x / chunk_size, closestpos.y / chunk_size, closestpos.z / chunk_size)->buildmesh();
         }
-        else if (hit && keys.newPress.MouseR)
+        else if (hit && keys.held.MouseR)
         {
             vec3 cubepos = closestpos;
             if (hit == side_x)
