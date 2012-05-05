@@ -33,21 +33,35 @@ inline int indexfrompos(int x, int y, int z)
 
 inline int blkindx(int x, int y, int z)
 {
-    return chunk_size * (chunk_size * x + y) + z;
+    return chunk_size * (chunk_size * z + y) + x;                       // zyx to avoid swizzle mistake in fragment shader (so that opengl reads the texture correctly)
 }
 
 
-chunk::chunk(vec3 chunkpos_)
+chunk::chunk(vec3 chunkpos_, neighborlist neighbors_)
 {
-    std::cout << "creating chunk at " << chunkpos_.x << " " << chunkpos_.y << " " << chunkpos_.z << "\n";
+    //std::cout << "creating chunk at " << chunkpos_.x << " " << chunkpos_.y << " " << chunkpos_.z << "\n";
     chunkpos = chunkpos_;
+    neighbors = neighbors_;
+
+    if (neighbors.xn)
+        neighbors.xn->neighbors.xp = this;
+    if (neighbors.xp)
+        neighbors.xp->neighbors.xn = this;
+    if (neighbors.yn)
+        neighbors.yn->neighbors.yp = this;
+    if (neighbors.yp)
+        neighbors.yp->neighbors.yn = this;
+    if (neighbors.zn)
+        neighbors.zn->neighbors.zp = this;
+    if (neighbors.zp)
+        neighbors.zp->neighbors.zn = this;
 
     float heightfield[chunk_size][chunk_size];
     for (int i = 0; i < chunk_size; i++)
     {
         for (int j = 0; j < chunk_size; j++)
         {
-            heightfield[i][j] = 5.f + 16.f * (glm::simplex(glm::vec2((i + chunkpos.x) * 0.003f, (j + chunkpos.z) * 0.003f)) * 0.25f + 0.75f) * fsimplex(glm::vec2((i + chunkpos.x) * 0.005f, (j + chunkpos.z) * 0.005f), 4, 0.5f);//20.0 * fbm((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f, 4, 2.f, 0.5f, 12345678);
+            heightfield[i][j] = 5.f + 20.f * (glm::simplex(glm::vec2((i + chunkpos.x) * 0.003f, (j + chunkpos.z) * 0.003f)) * 0.25f + 0.75f) * fsimplex(glm::vec2((i + chunkpos.x) * 0.005f, (j + chunkpos.z) * 0.005f), 4, 0.5f);//20.0 * fbm((i + chunkpos.x) * 0.01f, (j + chunkpos.z) * 0.01f, 4, 2.f, 0.5f, 12345678);
         }
     }
 
@@ -73,7 +87,6 @@ chunk::chunk(vec3 chunkpos_)
                 {
                     blocks[blkindx(i, j, k)] = y <= 0 ? blk_water : blk_air;
                 }
-
             }
         }
     }
@@ -89,15 +102,26 @@ chunk::chunk(vec3 chunkpos_)
 
     glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, chunk_size, chunk_size, chunk_size, 0, GL_RED, GL_UNSIGNED_BYTE, (void*) 0);  //don't upload it yet - we'll do that in the buildmesh method.
 
+    glGenTextures(1, &lighttexture);
+    glBindTexture(GL_TEXTURE_3D, lighttexture);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, chunk_size, chunk_size, chunk_size, 0, GL_RED, GL_UNSIGNED_BYTE, (void*) 0);
+
     indexbuffer = 0;
 
     buildmesh();
-    std::cout << "mesh built\n";
+    //std::cout << "mesh built\n";
 }
 
 chunk::chunk()
 {
-    chunk(vec3(0, 0, 0));
+    chunk(vec3(0, 0, 0), neighborlist());
 }
 
 void chunk::buildmesh()
@@ -110,9 +134,10 @@ void chunk::buildmesh()
         {
             for (int k = 0; k < chunk_size; k++)
             {
-                if (blocks[blkindx(i, j, k)])
+                char blk = blocks[blkindx(i, j, k)];
+                if (blk > blk_water)
                 {
-                    if (k == 0 || !blocks[blkindx(i, j, k - 1)])
+                    if (k == 0?  !neighbors.zn || neighbors.zn->blocks[blkindx(i, j, chunk_size - 1)] <= blk_water  :  blocks[blkindx(i, j, k - 1)] <= blk_water)       //emit face if: On the edge and no neigbour || on the edge and neighbouring chunk has no adjacent block || inside chunk and no adjacent block.
                     {
                         vertices.push_back(f_near * nvertindices + indexfrompos(i    , j    , k    ));  //face: -k
                         vertices.push_back(f_near * nvertindices + indexfrompos(i    , j + 1, k    ));
@@ -122,7 +147,7 @@ void chunk::buildmesh()
                         vertices.push_back(f_near * nvertindices + indexfrompos(i + 1, j + 1, k    ));
                     }
 
-                    if (k == chunk_size - 1 || !blocks[blkindx(i, j, k + 1)])
+                    if (k == chunk_size - 1?  !neighbors.zp || neighbors.zp->blocks[blkindx(i, j, 0)] <= blk_water  :  blocks[blkindx(i, j, k + 1)] <= blk_water)
                     {
                         vertices.push_back(f_far * nvertindices + indexfrompos(i + 1, j    , k + 1));  //face: +k
                         vertices.push_back(f_far * nvertindices + indexfrompos(i    , j + 1, k + 1));
@@ -132,7 +157,7 @@ void chunk::buildmesh()
                         vertices.push_back(f_far * nvertindices + indexfrompos(i + 1, j    , k + 1));
                     }
 
-                    if (j == 0 || !blocks[blkindx(i, j - 1, k)])
+                    if (j == 0?  !neighbors.yn || neighbors.yn->blocks[blkindx(i, chunk_size - 1, k)] <= blk_water  :  blocks[blkindx(i, j - 1, k)] <= blk_water)
                     {
                         vertices.push_back(f_down * nvertindices + indexfrompos(i    , j    , k    ));  //face: -j
                         vertices.push_back(f_down * nvertindices + indexfrompos(i + 1, j    , k    ));
@@ -142,7 +167,7 @@ void chunk::buildmesh()
                         vertices.push_back(f_down * nvertindices + indexfrompos(i    , j    , k + 1));
                     }
 
-                    if (j == chunk_size - 1 || !blocks[blkindx(i, j + 1, k)])
+                    if (j == chunk_size - 1?  !neighbors.yp || neighbors.yp->blocks[blkindx(i, 0, k)] <= blk_water  :  blocks[blkindx(i, j + 1, k)] <= blk_water)
                     {
                         vertices.push_back(f_up * nvertindices + indexfrompos(i    , j + 1, k + 1));  //face: +j
                         vertices.push_back(f_up * nvertindices + indexfrompos(i + 1, j + 1, k    ));
@@ -152,7 +177,7 @@ void chunk::buildmesh()
                         vertices.push_back(f_up * nvertindices + indexfrompos(i + 1, j + 1, k    ));
                     }
 
-                    if (i == 0 || !blocks[blkindx(i - 1, j, k)])
+                    if (i == 0?  !neighbors.xn || neighbors.xn->blocks[blkindx(chunk_size - 1, j, k)] <= blk_water  :  blocks[blkindx(i - 1, j, k)] <= blk_water)
                     {
                         vertices.push_back(f_left * nvertindices + indexfrompos(i    , j    , k    ));  //face: -i
                         vertices.push_back(f_left * nvertindices + indexfrompos(i    , j    , k + 1));
@@ -162,7 +187,7 @@ void chunk::buildmesh()
                         vertices.push_back(f_left * nvertindices + indexfrompos(i    , j + 1, k    ));
                     }
 
-                    if (i == chunk_size - 1 || !blocks[blkindx(i + 1, j, k)])
+                    if (i == chunk_size - 1?  !neighbors.xp || neighbors.xp->blocks[blkindx(0, j, k)] <= blk_water  :  blocks[blkindx(i + 1, j, k)] <= blk_water)
                     {
                         vertices.push_back(f_right * nvertindices + indexfrompos(i + 1, j + 1, k    ));  //face: +i
                         vertices.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k + 1));
@@ -172,6 +197,16 @@ void chunk::buildmesh()
                         vertices.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k + 1));
                     }
                 }
+
+                /*if(blocks[blkindx(i, j, k)] > blk_water)
+                {
+                    light[blkindx(i, j, k)] = 8;
+                }
+                else
+                {
+                    light[blkindx(i, j, k)] = 15;
+                }*/
+
             }
         }
     }
@@ -182,16 +217,22 @@ void chunk::buildmesh()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, vertices.size() * sizeof(GLuint), &vertices[0], GL_STATIC_DRAW);
     ntriangles = vertices.size() / 3;
-    std::cout << "Chunk has " << ntriangles << " triangles.\n";
+    //std::cout << "Chunk has " << ntriangles << " triangles.\n";
 
     glBindTexture(GL_TEXTURE_3D, blocktexture);
     glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, chunk_size, chunk_size, chunk_size, GL_RED, GL_UNSIGNED_BYTE, (void*) blocks);
+
+    //glBindTexture(GL_TEXTURE_3D, lighttexture);
+    //glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, chunk_size, chunk_size, chunk_size, GL_RED, GL_UNSIGNED_BYTE, (void*) light);
 }
 
 
 void chunk::draw()
 {
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_3D, blocktexture);
+    //glActiveTexture(GL_TEXTURE2);
+    //glBindTexture(GL_TEXTURE_3D, lighttexture);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexbuffer);
     glDrawElements(GL_TRIANGLES, ntriangles * 3, GL_UNSIGNED_INT, (void*)0);
@@ -217,5 +258,20 @@ void chunk::setBlock(float x, float y, float z, char blockid)
 {
     std::cout << "setting block at location " << chunkpos.x + x << ", " << chunkpos.y + y << ", " << chunkpos.z + z << " to " << blockid << "\n";
     blocks[blkindx(floor(x), floor(y), floor(z))] = blockid;
+}
+
+neighborlist::neighborlist()
+{
+    xp = xn = yp = yn = zp = zn = NULL;
+}
+
+neighborlist::neighborlist(chunk *xp_, chunk *xn_, chunk *yp_, chunk *yn_, chunk *zp_, chunk *zn_)
+{
+    xp = xp_;
+    xn = xn_;
+    yp = yp_;
+    yn = yn_;
+    zp = zp_;
+    zn = zn_;
 }
 

@@ -46,7 +46,7 @@ inline float roundupdown(float x, bool up)
 
 const float PI = 3.14159265358979323846;
 
-const float drawradius = 10.f;
+const float drawradius = 5.f;
 const float drawsquashy = 1.5f;
 
 const float playerspeed = 0.15;
@@ -70,6 +70,7 @@ struct
     GLuint blocktexture;
     GLuint facetextures;
     GLuint facetextureloc;
+    GLuint lighttexture;
 } resources;
 
 struct
@@ -105,6 +106,7 @@ void makeResources()
     resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
     resources.blocktexture = glGetUniformLocation(resources.program, "blocktexture");
     resources.facetextureloc = glGetUniformLocation(resources.program, "facetextures");
+    resources.lighttexture = glGetUniformLocation(resources.program, "lighttexture");
 
     std::cout << "posoffset " << resources.posoffset << "\n";
 
@@ -488,8 +490,11 @@ int main(int argc, char **argv)
         glEnableClientState(GL_NORMAL_ARRAY);
         glNormalPointer(GL_FLOAT, sizeof(packedvert), (void*)sizeof(vec3));
 
-        glActiveTexture(GL_TEXTURE1);
         glUniform1i(resources.blocktexture, 1);
+        glUniform1i(resources.lighttexture, 2);
+
+
+        int totaltris = 0;
 
         for (std::vector<vec3>::iterator iter = chunkPositions.begin(); iter != chunkPositions.end(); iter++)
         {
@@ -506,10 +511,13 @@ int main(int argc, char **argv)
                 if (chk)
                 {
                     chk->draw();
+                    totaltris += chk->ntriangles;
                 }
             }
 
         }
+
+        std::cout << "total triangles: " << totaltris << "\n";
 
 
         glDisableClientState(GL_VERTEX_ARRAY);
@@ -558,11 +566,6 @@ int main(int argc, char **argv)
             glEnd();
         }
 
-        glPointSize(5.f);
-        glBegin(GL_POINTS);
-        glVertex3f(campos.x + step.x, campos.y + step.y, campos.z + step.z);
-        glEnd();
-
         glPointSize(3.f);
 
         glBegin(GL_POINTS);
@@ -575,6 +578,7 @@ int main(int argc, char **argv)
 
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
+        glScalef((float)height/width, 1.0, 1.0);
         glDisable(GL_DEPTH_TEST);
 
         glBegin(GL_LINES);

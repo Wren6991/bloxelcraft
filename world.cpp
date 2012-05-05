@@ -23,7 +23,14 @@ chunk* world::getChunk(int x, int y, int z)
         //maximum of 3 chunks generated per frame - avoid stutter.
         if (chunksGenerated >= 3)
             return 0;
-        chunks[x][y][z] = new chunk(vec3(x, y, z) * chunk_size);
+        chunks[x][y][z] = new chunk(vec3(x, y, z) * chunk_size, neighborlist(
+                                                                             getChunkNoGenerate(x + 1, y    ,     z),
+                                                                             getChunkNoGenerate(x - 1, y    ,     z),
+                                                                             getChunkNoGenerate(x    , y + 1, z    ),
+                                                                             getChunkNoGenerate(x    , y - 1, z    ),
+                                                                             getChunkNoGenerate(x    , y    , z + 1),
+                                                                             getChunkNoGenerate(x    , y    , z - 1)
+                                                                             ));
         chunkexists[x][y][z] = true;
         chunksGenerated++;
         return chunks[x][y][z];
@@ -44,7 +51,14 @@ chunk* world::getChunkAlways(int x, int y, int z)
     }
     else
     {
-        chunks[x][y][z] = new chunk(vec3(x, y, z) * chunk_size);
+        chunks[x][y][z] = new chunk(vec3(x, y, z) * chunk_size, neighborlist(
+                                                                             getChunkNoGenerate(x + 1, y    ,     z),
+                                                                             getChunkNoGenerate(x - 1, y    ,     z),
+                                                                             getChunkNoGenerate(x    , y + 1, z    ),
+                                                                             getChunkNoGenerate(x    , y - 1, z    ),
+                                                                             getChunkNoGenerate(x    , y    , z + 1),
+                                                                             getChunkNoGenerate(x    , y    , z - 1)
+                                                                             ));
         chunkexists[x][y][z] = true;
         chunksGenerated++;
         return chunks[x][y][z];
@@ -53,7 +67,20 @@ chunk* world::getChunkAlways(int x, int y, int z)
 
 chunk* world::getChunkAlways(float x, float y, float z)
 {
-    return getChunkAlways((int)floor(x), (int)floor(y), (int)floor(z));
+    return getChunkAlways((int)floorf(x), (int)floorf(y), (int)floorf(z));
+}
+
+chunk* world::getChunkNoGenerate(int x, int y, int z)
+{
+    if (chunkexists[x][y][z])
+        return chunks[x][y][z];
+    else
+        return 0;
+}
+
+chunk* world::getChunkNoGenerate(float x, float y, float z)
+{
+    return getChunkNoGenerate((int)floorf(x), (int)floorf(y), (int)floorf(z));
 }
 
 char world::getBlock(int x, int y, int z)

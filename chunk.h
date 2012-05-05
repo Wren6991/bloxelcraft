@@ -29,21 +29,36 @@ typedef enum face_orientation
     f_far
 } face_orientation;
 
+class chunk;
+
+struct neighborlist
+{
+    chunk *xp;  //right
+    chunk *xn;  //left
+    chunk *yp;  //up
+    chunk *yn;  //down
+    chunk *zp;  //far
+    chunk *zn;  //near
+    neighborlist();
+    neighborlist(chunk*, chunk*, chunk*, chunk*, chunk*, chunk*);
+};
 
 class chunk
 {
-    private:
-
+    public:
     // position of bottom-left-near corner:
-    public: vec3 chunkpos;
+    vec3 chunkpos;
+    neighborlist neighbors;
+    char blocks[chunk_size * chunk_size * chunk_size];
     private:
 
     GLuint vposbuffer;
     GLuint indexbuffer;
     GLuint blocktexture;
-    unsigned int ntriangles;
+    GLuint lighttexture;
 
-    char blocks[chunk_size * chunk_size * chunk_size];
+
+    char light[chunk_size * chunk_size * chunk_size];
 
     public:
 
@@ -53,9 +68,11 @@ class chunk
     char getBlock(int x, int y, int z);
     void setBlock(float x, float y, float z, char blockid);       //overload because we want floor for float->int instead of round towards 0.
     void setBlock(int x, int y, int z, char blockid);
+unsigned int ntriangles;
 
     chunk();
-    chunk(vec3 chunkpos_);
+    chunk(vec3 chunkpos_, neighborlist neighbors_);
 };
+
 
 #endif //_CHUNK_H_INCLUDED_
