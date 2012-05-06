@@ -117,6 +117,19 @@ chunk::chunk(vec3 chunkpos_, neighborlist neighbors_)
 
     buildmesh();
     //std::cout << "mesh built\n";
+
+    if (neighbors.xn)
+        neighbors.xn->buildmesh();
+    if (neighbors.xp)
+        neighbors.xp->buildmesh();
+    if (neighbors.yn)
+        neighbors.yn->buildmesh();
+    if (neighbors.yp)
+        neighbors.yp->buildmesh();
+    if (neighbors.zn)
+        neighbors.zn->buildmesh();
+    if (neighbors.zp)
+        neighbors.zp->buildmesh();
 }
 
 chunk::chunk()
@@ -127,6 +140,7 @@ chunk::chunk()
 void chunk::buildmesh()
 {
     std::vector <GLuint> vertices;
+    std::vector <GLuint> translucentverts;
 
     for (int i = 0; i < chunk_size; i++)
     {
@@ -197,6 +211,68 @@ void chunk::buildmesh()
                         vertices.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k + 1));
                     }
                 }
+                else if (blk)           //handle translucent blocks in a separate buffer.
+                {
+                    if (k == 0?  !neighbors.zn || neighbors.zn->blocks[blkindx(i, j, chunk_size - 1)] < blk  :  blocks[blkindx(i, j, k - 1)] < blk)       //emit face if: On the edge and no neigbour || on the edge and neighbouring chunk has no adjacent block || inside chunk and no adjacent block.
+                    {
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i    , j    , k    ));  //face: -k
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i    , j + 1, k    ));
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i + 1, j    , k    ));
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i + 1, j    , k    ));
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i    , j + 1, k    ));
+                        translucentverts.push_back(f_near * nvertindices + indexfrompos(i + 1, j + 1, k    ));
+                    }
+
+                    if (k == chunk_size - 1?  !neighbors.zp || neighbors.zp->blocks[blkindx(i, j, 0)] < blk  :  blocks[blkindx(i, j, k + 1)] < blk)
+                    {
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i + 1, j    , k + 1));  //face: +k
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i    , j + 1, k + 1));
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i    , j    , k + 1));
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i + 1, j + 1, k + 1));
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i    , j + 1, k + 1));
+                        translucentverts.push_back(f_far * nvertindices + indexfrompos(i + 1, j    , k + 1));
+                    }
+
+                    if (j == 0?  !neighbors.yn || neighbors.yn->blocks[blkindx(i, chunk_size - 1, k)] < blk  :  blocks[blkindx(i, j - 1, k)] < blk)
+                    {
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i    , j    , k    ));  //face: -j
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i + 1, j    , k    ));
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i    , j    , k + 1));
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i + 1, j    , k    ));
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i + 1, j    , k + 1));
+                        translucentverts.push_back(f_down * nvertindices + indexfrompos(i    , j    , k + 1));
+                    }
+
+                    if (j == chunk_size - 1?  !neighbors.yp || neighbors.yp->blocks[blkindx(i, 0, k)] < blk  :  blocks[blkindx(i, j + 1, k)] < blk)
+                    {
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i    , j + 1, k + 1));  //face: +j
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i + 1, j + 1, k    ));
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i    , j + 1, k    ));
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i    , j + 1, k + 1));
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i + 1, j + 1, k + 1));
+                        translucentverts.push_back(f_up * nvertindices + indexfrompos(i + 1, j + 1, k    ));
+                    }
+
+                    if (i == 0?  !neighbors.xn || neighbors.xn->blocks[blkindx(chunk_size - 1, j, k)] < blk  :  blocks[blkindx(i - 1, j, k)] < blk)
+                    {
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j    , k    ));  //face: -i
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j    , k + 1));
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j + 1, k    ));
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j    , k + 1));
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j + 1, k + 1));
+                        translucentverts.push_back(f_left * nvertindices + indexfrompos(i    , j + 1, k    ));
+                    }
+
+                    if (i == chunk_size - 1?  !neighbors.xp || neighbors.xp->blocks[blkindx(0, j, k)] < blk  :  blocks[blkindx(i + 1, j, k)] < blk)
+                    {
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j + 1, k    ));  //face: +i
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k + 1));
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k    ));
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j + 1, k    ));
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j + 1, k + 1));
+                        translucentverts.push_back(f_right * nvertindices + indexfrompos(i + 1, j    , k + 1));
+                    }
+                }
 
                 /*if(blocks[blkindx(i, j, k)] > blk_water)
                 {
@@ -219,6 +295,11 @@ void chunk::buildmesh()
     ntriangles = vertices.size() / 3;
     //std::cout << "Chunk has " << ntriangles << " triangles.\n";
 
+    glGenBuffers(1, &waterindexbuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, waterindexbuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, translucentverts.size() * sizeof(GLuint), &translucentverts[0], GL_STATIC_DRAW);
+    ntranslucenttriangles = translucentverts.size() / 3;
+
     glBindTexture(GL_TEXTURE_3D, blocktexture);
     glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, chunk_size, chunk_size, chunk_size, GL_RED, GL_UNSIGNED_BYTE, (void*) blocks);
 
@@ -236,6 +317,15 @@ void chunk::draw()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexbuffer);
     glDrawElements(GL_TRIANGLES, ntriangles * 3, GL_UNSIGNED_INT, (void*)0);
+}
+
+void chunk::drawtranslucent()
+{
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, blocktexture);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, waterindexbuffer);
+    glDrawElements(GL_TRIANGLES, ntranslucenttriangles * 3, GL_UNSIGNED_INT, (void*)0);
 }
 
 char chunk::getBlock(int x, int y, int z)

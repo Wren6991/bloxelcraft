@@ -14,15 +14,13 @@
 
 // TODO:
 // proper terrain generation
-// controls
 // player physics
 // drawing visible sides only (still single VBO, separate IBO for each face direction for each chunk)
 // block placing
 // proper block selection
 // HUD
 // more block types
-// proper view frustum culling (or view cone?)
-// render sphere of chunks instead of plane
+//
 
 // lighting
 // - per-vertex soft lighting - calc on CPU, upload as 3d texture, sample with linear interp for each fragment
@@ -63,15 +61,31 @@ typedef enum {
 
 struct
 {
-    GLuint fshader;
-    GLuint vshader;
-    GLuint program;
+    struct
+    {
+        GLuint fshader;
+        GLuint vshader;
+        GLuint program;
+        GLuint posoffset;
+        GLuint blocktexture;
+        GLuint facetextureloc;
+        GLuint lighttexture;
+    } terrain;
+
+    struct
+    {
+        GLuint fshader;
+        GLuint vshader;
+        GLuint program;
+        GLuint posoffset;
+        GLuint blocktexture;
+        GLuint facetextureloc;
+        GLuint lighttexture;
+    } water;
+
     GLuint vertexbuffer;
-    GLuint posoffset;
-    GLuint blocktexture;
     GLuint facetextures;
-    GLuint facetextureloc;
-    GLuint lighttexture;
+
 } resources;
 
 struct
@@ -100,16 +114,24 @@ struct
 
 void makeResources()
 {
-    resources.fshader = makeShader(GL_FRAGMENT_SHADER, progDirectory + "data/terrain.f.glsl");
-    resources.vshader = makeShader(GL_VERTEX_SHADER, progDirectory + "data/terrain.v.glsl");
-    resources.program = makeProgram(resources.vshader, resources.fshader);
+    resources.terrain.fshader = makeShader(GL_FRAGMENT_SHADER, progDirectory + "data/terrain.f.glsl");
+    resources.terrain.vshader = makeShader(GL_VERTEX_SHADER, progDirectory + "data/terrain.v.glsl");
+    resources.terrain.program = makeProgram(resources.terrain.vshader, resources.terrain.fshader);
 
-    resources.posoffset = glGetUniformLocation(resources.program, "posoffset");
-    resources.blocktexture = glGetUniformLocation(resources.program, "blocktexture");
-    resources.facetextureloc = glGetUniformLocation(resources.program, "facetextures");
-    resources.lighttexture = glGetUniformLocation(resources.program, "lighttexture");
+    resources.terrain.posoffset = glGetUniformLocation(resources.terrain.program, "posoffset");
+    resources.terrain.blocktexture = glGetUniformLocation(resources.terrain.program, "blocktexture");
+    resources.terrain.facetextureloc = glGetUniformLocation(resources.terrain.program, "facetextures");
+    resources.terrain.lighttexture = glGetUniformLocation(resources.terrain.program, "lighttexture");
 
-    std::cout << "posoffset " << resources.posoffset << "\n";
+    resources.water.fshader = makeShader(GL_FRAGMENT_SHADER, progDirectory + "data/water.f.glsl");
+    resources.water.vshader = makeShader(GL_VERTEX_SHADER, progDirectory + "data/water.v.glsl");
+    resources.water.program = makeProgram(resources.water.vshader, resources.water.fshader);
+
+    resources.water.posoffset = glGetUniformLocation(resources.water.program, "posoffset");
+    resources.water.blocktexture = glGetUniformLocation(resources.water.program, "blocktexture");
+    resources.water.facetextureloc = glGetUniformLocation(resources.water.program, "facetextures");
+    resources.water.lighttexture = glGetUniformLocation(resources.water.program, "lighttexture");
+
 
     std::vector <packedvert> verts;
     vec3 normal;
@@ -438,7 +460,25 @@ int main(int argc, char **argv)
         if (hit && keys.newPress.MouseL)
         {
             wld.setBlock(closestpos.x, closestpos.y, closestpos.z, blk_air);
-            wld.getChunkAlways(closestpos.x / chunk_size, closestpos.y / chunk_size, closestpos.z / chunk_size)->buildmesh();
+            chunk *chk = wld.getChunkAlways(closestpos.x / chunk_size, closestpos.y / chunk_size, closestpos.z / chunk_size);
+            chk->buildmesh();
+            vec3 relpos = closestpos - chk->chunkpos;
+            relpos = vec3(floorf(relpos.x), floorf(relpos.y), floorf(relpos.z));
+            if (relpos.x == 0 && chk->neighbors.xn)
+                chk->neighbors.xn->buildmesh();
+            else if (relpos.x == chunk_size - 1 && chk->neighbors.xp)
+                chk->neighbors.xp->buildmesh();
+
+            if (relpos.y == 0 && chk->neighbors.yn)
+                chk->neighbors.yn->buildmesh();
+            else if (relpos.y == chunk_size - 1 && chk->neighbors.yp)
+                chk->neighbors.yp->buildmesh();
+
+            if (relpos.z == 0 && chk->neighbors.zn)
+                chk->neighbors.zn->buildmesh();
+            else if (relpos.z == chunk_size - 1 && chk->neighbors.zp)
+                chk->neighbors.zp->buildmesh();
+
         }
         else if (hit && keys.held.MouseR)
         {
@@ -450,7 +490,26 @@ int main(int argc, char **argv)
             else
                 cubepos.z -= sgnf(raydir.z);
             wld.setBlock(cubepos.x, cubepos.y, cubepos.z, blk_wood);
-            wld.getChunkAlways(cubepos.x / chunk_size, cubepos.y / chunk_size, cubepos.z / chunk_size)->buildmesh();
+            chunk *chk = wld.getChunkAlways(cubepos.x / chunk_size, cubepos.y / chunk_size, cubepos.z / chunk_size);
+            chk->buildmesh();
+            vec3 relpos = cubepos - chk->chunkpos;
+            relpos = vec3(floorf(relpos.x), floorf(relpos.y), floorf(relpos.z));
+            if (relpos.x == 0 && chk->neighbors.xn)
+                chk->neighbors.xn->buildmesh();
+            else if (relpos.x == chunk_size - 1 && chk->neighbors.xp)
+                chk->neighbors.xp->buildmesh();
+
+            if (relpos.y == 0 && chk->neighbors.yn)
+                chk->neighbors.yn->buildmesh();
+            else if (relpos.y == chunk_size - 1 && chk->neighbors.yp)
+                chk->neighbors.yp->buildmesh();
+
+            if (relpos.z == 0 && chk->neighbors.zn)
+                chk->neighbors.zn->buildmesh();
+            else if (relpos.z == chunk_size - 1 && chk->neighbors.zp)
+                chk->neighbors.zp->buildmesh();
+
+            std::cout << "relpos: " << relpos.tostring() << "\n";
         }
 
         if (glfwGetKey(GLFW_KEY_SPACE))
@@ -461,7 +520,9 @@ int main(int argc, char **argv)
 
         //////////////////////////////////////////DRAW
 
-        glUseProgram(resources.program);
+        glDisable(GL_BLEND);
+
+        glUseProgram(resources.terrain.program);
 
         glfwGetWindowSize( &width, &height );
         height = height > 0 ? height : 1;
@@ -487,7 +548,7 @@ int main(int argc, char **argv)
         glLoadIdentity();
 
         glActiveTexture(GL_TEXTURE0);
-        glUniform1i(resources.facetextureloc, 0);
+        glUniform1i(resources.terrain.facetextureloc, 0);
         glBindTexture(GL_TEXTURE_2D_ARRAY, resources.facetextures);
 
         glBindBuffer(GL_ARRAY_BUFFER, resources.vertexbuffer);
@@ -496,11 +557,10 @@ int main(int argc, char **argv)
         glEnableClientState(GL_NORMAL_ARRAY);
         glNormalPointer(GL_FLOAT, sizeof(packedvert), (void*)sizeof(vec3));
 
-        glUniform1i(resources.blocktexture, 1);
-        glUniform1i(resources.lighttexture, 2);
+        glUniform1i(resources.terrain.blocktexture, 1);
+        glUniform1i(resources.terrain.lighttexture, 2);
 
 
-        int totaltris = 0;
 
         for (std::vector<vec3>::iterator iter = chunkPositions.begin(); iter != chunkPositions.end(); iter++)
         {
@@ -512,19 +572,38 @@ int main(int argc, char **argv)
                 int chkcoordy = floorf(camy / chunk_size) + pos.y;
                 int chkcoordz = floorf(camz / chunk_size) + pos.z;
 
-                glUniform3f(resources.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
+                glUniform3f(resources.terrain.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
                 chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
                 if (chk)
                 {
                     chk->draw();
-                    totaltris += chk->ntriangles;
                 }
             }
 
         }
 
-        std::cout << "total triangles: " << totaltris << "\n";
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        for (std::vector<vec3>::iterator iter = chunkPositions.begin(); iter != chunkPositions.end(); iter++)
+        {
+            vec3 pos = *iter;
+            vec3 adjustedpos = pos + raydir * 1.5f;
+            if (raydir.dot(adjustedpos * (1.f / adjustedpos.length())) > 0.6f)
+            {
+                int chkcoordx = floorf(camx / chunk_size) + pos.x;
+                int chkcoordy = floorf(camy / chunk_size) + pos.y;
+                int chkcoordz = floorf(camz / chunk_size) + pos.z;
+
+                glUniform3f(resources.terrain.posoffset, chkcoordx * chunk_size, chkcoordy * chunk_size, chkcoordz * chunk_size);
+                chunk *chk = wld.getChunk(chkcoordx, chkcoordy, chkcoordz);
+                if (chk)
+                {
+                    chk->drawtranslucent();
+                }
+            }
+
+        }
 
         glDisableClientState(GL_VERTEX_ARRAY);
         glDisableClientState(GL_NORMAL_ARRAY);

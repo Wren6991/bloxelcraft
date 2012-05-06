@@ -49,26 +49,29 @@ class chunk
     // position of bottom-left-near corner:
     vec3 chunkpos;
     neighborlist neighbors;
-    char blocks[chunk_size * chunk_size * chunk_size];
-    private:
+
+   private:
 
     GLuint vposbuffer;
     GLuint indexbuffer;
+    GLuint waterindexbuffer;
     GLuint blocktexture;
     GLuint lighttexture;
 
-
+    char blocks[chunk_size * chunk_size * chunk_size];
     char light[chunk_size * chunk_size * chunk_size];
 
     public:
 
     void buildmesh();
     void draw();
+    void drawtranslucent();                         //water etc. - rendered in separate pass, so we can avoid depth buffer writes and cockups.
     char getBlock(float x, float y, float z);       //overload because we want floor for float->int instead of round towards 0.
     char getBlock(int x, int y, int z);
     void setBlock(float x, float y, float z, char blockid);       //overload because we want floor for float->int instead of round towards 0.
     void setBlock(int x, int y, int z, char blockid);
-unsigned int ntriangles;
+    unsigned int ntriangles;
+    unsigned int ntranslucenttriangles;
 
     chunk();
     chunk(vec3 chunkpos_, neighborlist neighbors_);
