@@ -365,3 +365,11 @@ neighborlist::neighborlist(chunk *xp_, chunk *xn_, chunk *yp_, chunk *yn_, chunk
     zn = zn_;
 }
 
+hitresult::hitresult (vec3 pos_, side_enum hit_, blocktype type_)
+{
+    pos = pos_;
+    hit = hit_;
+    type = type_;
+}
+
+

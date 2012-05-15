@@ -77,5 +77,19 @@ class chunk
     chunk(vec3 chunkpos_, neighborlist neighbors_);
 };
 
+typedef enum {
+    side_none = 0,
+    side_x,
+    side_y,
+    side_z
+} side_enum;
+
+struct hitresult
+{
+    vec3 pos;
+    side_enum hit;
+    blocktype type;
+    hitresult(vec3, side_enum, blocktype);
+};
 
 #endif //_CHUNK_H_INCLUDED_
