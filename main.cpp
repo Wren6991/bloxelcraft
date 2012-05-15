@@ -10,6 +10,7 @@
 #include "util.h"
 #include "chunk.h"
 #include "world.h"
+#include "main.h"
 
 
 // TODO:
@@ -42,17 +43,6 @@ inline float roundupdown(float x, bool up)
 {
     return up? ceilf(x) : floorf(x);
 }
-
-const float PI = 3.14159265358979323846;
-
-const float drawradius = 11.f;
-const float drawsquashy = 1.5f;
-
-const float playerspeed = 0.15;
-
-std::vector <vec3> chunkPositions;
-std::string progDirectory;
-world wld;
 
 hitresult traceRay(vec3 origin, vec3 direction)
 {
@@ -141,69 +131,6 @@ hitresult traceRay(vec3 origin, vec3 direction)
     return hitresult(closestpos, hit, (blocktype)wld.getBlock(rpos.x, rpos.y, rpos.z));
 }
 
-struct
-{
-    struct
-    {
-        GLuint fshader;
-        GLuint vshader;
-        GLuint program;
-        GLuint posoffset;
-        GLuint blocktexture;
-        GLuint facetextureloc;
-        GLuint lighttexture;
-    } terrain;
-
-    struct
-    {
-        GLuint fshader;
-        GLuint vshader;
-        GLuint program;
-        GLuint posoffset;
-        GLuint blocktexture;
-        GLuint facetextureloc;
-        GLuint lighttexture;
-    } water;
-
-    GLuint vertexbuffer;
-    GLuint facetextures;
-
-} resources;
-
-struct
-{
-    struct
-    {
-        bool W;
-        bool A;
-        bool S;
-        bool D;
-        bool space;
-        bool MouseL;
-        bool MouseR;
-    } held;
-
-    struct
-    {
-        /*bool W;
-        bool A;
-        bool S;
-        bool D;*/
-        bool MouseL;
-        bool MouseR;
-    } newPress;
-
-} keys;
-
-struct
-{
-    vec3 pos;
-    vec3 vel;
-    float pitch;
-    float yaw;
-    vec3 eyedir;
-    bool isOnGround;
-} player;
 
 void makeResources()
 {
